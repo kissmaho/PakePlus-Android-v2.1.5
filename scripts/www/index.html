@@ -1,11 +1,814 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的资产 - 详情版</title>
+    <style>
+        :root {
+            --primary-green: #d4f573;
+            --bg-color: #f5f7f9;
+            --text-dark: #1a1a1a;
+            --text-grey: #888;
+            --danger: #ff4d4f;
+            --sold-blue: #5ac8fa;
+            --retired-grey: #aaaaaa;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 80px;
+            color: var(--text-dark);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 主页右上角菜单 */
+        .menu-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 200;
+        }
+
+        .backup-panel {
+            position: fixed;
+            top: 74px;
+            right: 20px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            padding: 16px;
+            width: 220px;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 199;
+        }
+        .backup-panel.show { display: flex; }
+        .backup-btn {
+            padding: 12px 16px;
+            background: #f0f0f0;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .header-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .header-title { font-size: 14px; color: var(--text-grey); margin-bottom: 10px; }
+        .stats-row { display: flex; justify-content: space-between; }
+        .stat-item h2 { margin: 0; font-size: 28px; font-weight: 700; }
+        .stat-item p { margin: 5px 0 0 0; font-size: 12px; color: var(--text-grey); }
+
+        .progress-deco {
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            margin-top: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-deco::after {
+            content: '';
+            position: absolute; left: 0; top: 0;
+            height: 100%; width: 40%;
+            background: var(--primary-green);
+            border-radius: 3px;
+        }
+
+        .category-tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 10px;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            scrollbar-width: none;
+        }
+        .category-tabs::-webkit-scrollbar { display: none; }
+        .category-tab {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            font-size: 14px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .category-tab.active { background: #1a1a1a; color: white; }
+
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .item-card {
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .item-card:active { transform: scale(0.98); }
+
+        .status-tag {
+            position: absolute; top: 10px; right: 10px;
+            font-size: 10px; background: #f0f0f0;
+            padding: 2px 8px; border-radius: 10px;
+            display: flex; align-items: center; color: #666;
+        }
+        .status-tag.active .status-dot { background-color: var(--primary-green); }
+        .status-tag.sold { background: #e5f8ff; color: #1a8cff; }
+        .status-tag.sold .status-dot { background-color: var(--sold-blue); }
+        .status-tag.retired { background: #f0f0f0; color: #888; }
+        .status-tag.retired .status-dot { background-color: var(--retired-grey); }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; }
+
+        /* ============ 图片容器美化（关键修改） ============ */
+        .item-img-box,
+        .detail-img-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 3px solid white;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .detail-img-box {
+            width: 80px;
+            height: 80px;
+            border-radius: 18px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            border: 4px solid white;
+            margin-bottom: 15px;
+        }
+
+        .item-img-box img,
+        .detail-img-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+        }
+
+        /* 首字母占位符也美化 */
+        .item-img-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        /* 预览图片也加边框 */
+        #preview-container {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 3px solid white;
+            display: none;
+        }
+        #preview-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* ============================================== */
+
+        .item-name { font-weight: 600; font-size: 15px; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-meta { font-size: 11px; color: #999; margin-bottom: 8px; }
+        .cpw-price { font-size: 18px; font-weight: 700; color: var(--text-dark); }
+        .cpw-unit { font-size: 12px; font-weight: normal; }
+
+        .fab {
+            position: fixed; bottom: 30px; right: 30px;
+            width: 60px; height: 60px; background: #1a1a1a;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer; z-index: 100;
+        }
+
+        .detail-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #fff; z-index: 300; display: none; flex-direction: column;
+            overflow-y: auto; animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        .detail-nav { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; }
+        .nav-icon { font-size: 24px; padding: 10px; cursor: pointer; color: #333; }
+
+        .detail-content { padding: 0 20px 40px 20px; display: flex; flex-direction: column; align-items: center; }
+
+        .detail-title { font-size: 20px; font-weight: 600; margin-bottom: 5px; }
+        .detail-cpw { font-size: 36px; font-weight: 700; margin: 10px 0; }
+        .detail-sub { font-size: 13px; color: #999; margin-bottom: 30px; }
+
+        .chart-container { width: 100%; height: 180px; margin-bottom: 30px; position: relative; }
+        svg { width: 100%; height: 100%; overflow: visible; }
+        .chart-line { fill: none; stroke: var(--primary-green); stroke-width: 3; stroke-linecap: round; }
+        .chart-area { fill: url(#gradient); stroke: none; opacity: 0.3; }
+
+        .info-list { width: 100%; background: #f9f9f9; border-radius: 16px; padding: 20px; box-sizing: border-box; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #888; }
+        .info-val { font-weight: 500; }
+        .profit-positive { color: #34c759; }
+        .profit-negative { color: var(--danger); }
+
+        .btn-delete-big {
+            margin-top: 30px; width: 100%; padding: 15px;
+            background: white; border: 1px solid #ffecec; color: var(--danger);
+            border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 77, 79, 0.05);
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: flex-end; z-index: 400;
+        }
+        .modal-content {
+            background: white; width: 100%; max-width: 500px;
+            padding: 25px; padding-bottom: 40px; border-radius: 20px 20px 0 0;
+            animation: slideUp 0.3s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: #f9f9f9; }
+
+        .status-fields { display: none; }
+        .status-fields.active { display: block; }
+
+        .btn-group { display: flex; gap: 10px; margin-top: 25px; }
+        button { flex: 1; padding: 15px; border: none; border-radius: 10px; font-weight: 600; font-size: 16px; cursor: pointer; }
+        .btn-cancel { background: #f0f0f0; color: #333; }
+        .btn-save { background: var(--primary-green); color: #1a1a1a; }
+
+        .upload-control-group { display: flex; align-items: center; gap: 15px; }
+        .upload-btn-label { padding: 10px 15px; background: #f0f0f0; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 备份菜单 -->
+    <div class="menu-btn" onclick="toggleBackupPanel()">☰</div>
+    <div class="backup-panel" id="backup-panel">
+        <div class="backup-btn" onclick="exportData()">📤 导出全部数据</div>
+        <div class="backup-btn" onclick="document.getElementById('import-file').click()">📥 导入全部数据</div>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+
+    <div id="home-view">
+        <div class="header-card">
+            <div class="header-title">资产总览（仅服役中物品）</div>
+            <div class="stats-row">
+                <div class="stat-item"><p>总资产</p><h2 id="total-assets">¥0.00</h2></div>
+                <div class="stat-item"><p>日均成本总计</p><h2 id="total-daily-cost">¥0.00</h2></div>
+            </div>
+            <div class="progress-deco"></div>
+        </div>
+
+        <div class="category-tabs" id="category-tabs"></div>
+
+        <div class="grid-container" id="items-grid"></div>
+        <div class="fab" onclick="openAddModal()">+</div>
+    </div>
+
+    <datalist id="category-list"></datalist>
+
+    <div class="detail-overlay" id="detail-overlay">
+        <div class="detail-nav">
+            <div class="nav-icon" onclick="closeDetail()">✕</div>
+            <div class="nav-icon" onclick="editCurrentItem()">✎</div>
+        </div>
+        <div class="detail-content">
+            <div class="detail-img-box" id="d-img-box"></div>
+            <div class="detail-title" id="d-name">物品名称</div>
+            <div class="detail-cpw" id="d-cpw">¥0.00<span style="font-size:16px; font-weight:normal">/天</span></div>
+            <div class="detail-sub" id="d-sub">总价 ¥0 | 已使用 0 天</div>
+
+            <div class="chart-container">
+                <svg id="cpw-chart" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--primary-green);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+                        </linearGradient>
+                    </defs>
+                    <path id="chart-area-path" class="chart-area" d="" />
+                    <path id="chart-line-path" class="chart-line" d="" />
+                    <text x="0" y="175" class="chart-axis-label" id="chart-start-date">购买日</text>
+                    <text x="90%" y="175" class="chart-axis-label" text-anchor="end">今天</text>
+                </svg>
+            </div>
+
+            <div class="info-list">
+                <div class="info-row"><span class="info-label">单价</span><span class="info-val" id="d-price">¥0.00</span></div>
+                <div class="info-row"><span class="info-label">购买日期</span><span class="info-val" id="d-date">2023-01-01</span></div>
+                <div class="info-row"><span class="info-label">状态</span><span class="info-val" id="d-status">服役中</span></div>
+                <div class="info-row" id="d-sold-row" style="display:none"><span class="info-label">卖出日期 / 价格</span><span class="info-val" id="d-sold-info"></span></div>
+                <div class="info-row" id="d-profit-row" style="display:none"><span class="info-label">盈亏</span><span class="info-val" id="d-profit"></span></div>
+                <div class="info-row" id="d-retired-row" style="display:none"><span class="info-label">退役日期</span><span class="info-val" id="d-retired-date"></span></div>
+                <div class="info-row"><span class="info-label">类别</span><span class="info-val" id="d-category">其他</span></div>
+            </div>
+
+            <button class="btn-delete-big" onclick="deleteCurrentItem()">🗑 删除此物品</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0" id="modal-title">添加新物品</h3>
+            
+            <div class="form-group">
+                <label>物品名称</label>
+                <input type="text" id="input-name" placeholder="例如：iPhone 15">
+            </div>
+            <div class="form-group">
+                <label>购买价格 (元)</label>
+                <input type="number" id="input-price" placeholder="0.00" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>购买日期</label>
+                <input type="date" id="input-date">
+            </div>
+            <div class="form-group">
+                <label>状态</label>
+                <select id="input-status" onchange="toggleStatusFields()">
+                    <option value="active">服役中</option>
+                    <option value="sold">已卖出</option>
+                    <option value="retired">已退役</option>
+                </select>
+            </div>
+
+            <div class="form-group status-fields" id="sold-fields">
+                <label>卖出日期</label>
+                <input type="date" id="input-sold-date">
+                <label style="margin-top:10px">卖出价格 (元)</label>
+                <input type="number" id="input-sold-price" placeholder="0.00" step="0.01">
+            </div>
+
+            <div class="form-group status-fields" id="retired-fields">
+                <label>退役日期</label>
+                <input type="date" id="input-retired-date">
+            </div>
+
+            <div class="form-group">
+                <label>分类（可输入新分类）</label>
+                <input type="text" id="input-category" list="category-list" placeholder="例如：数码">
+            </div>
+            <div class="form-group">
+                <label>物品图片</label>
+                <div class="upload-control-group">
+                    <input type="file" id="input-file" accept="image/*" style="display: none;">
+                    <label for="input-file" class="upload-btn-label">选择图片</label>
+                    <div id="preview-container"><img id="preview-img" src=""></div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-cancel" onclick="closeEditModal()">取消</button>
+                <button class="btn-save" onclick="saveItem()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let items = JSON.parse(localStorage.getItem('myItems')) || [];
+        items.forEach(item => {
+            if (!item.category) item.category = "其他";
+            if (!item.status) item.status = "active";
+        });
+
+        let tempImageBase64 = '';
+        let currentDetailId = null;
+        let editingId = null;
+        let currentFilter = "全部";
+
+        function calculateStats(price, dateString, endDateString = null) {
+            const now = new Date(); now.setHours(0,0,0,0);
+            const buyDate = new Date(dateString); buyDate.setHours(0,0,0,0);
+            const endDate = endDateString ? new Date(endDateString) : now;
+            endDate.setHours(0,0,0,0);
+
+            let daysUsed = Math.ceil((endDate - buyDate) / (1000 * 60 * 60 * 24));
+            if (daysUsed < 1) daysUsed = 1;
+            const cpw = (price / daysUsed).toFixed(2);
+            return { daysUsed, cpw };
+        }
+
+        function getAllCategories() {
+            const cats = new Set(items.map(item => item.category || "其他"));
+            return ["全部", ...Array.from(cats).sort()];
+        }
+
+        function updateCategoryDatalist() {
+            const datalist = document.getElementById('category-list');
+            datalist.innerHTML = '';
+            const cats = getAllCategories();
+            cats.forEach(cat => {
+                if (cat !== "全部") {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    datalist.appendChild(option);
+                }
+            });
+        }
+
+        function renderCategoryTabs() {
+            const container = document.getElementById('category-tabs');
+            container.innerHTML = '';
+            const categories = getAllCategories();
+            categories.forEach(cat => {
+                const tab = document.createElement('div');
+                tab.className = 'category-tab';
+                tab.textContent = cat;
+                if (cat === currentFilter) tab.classList.add('active');
+                tab.onclick = () => {
+                    currentFilter = cat;
+                    renderCategoryTabs();
+                    render();
+                };
+                container.appendChild(tab);
+            });
+        }
+
+        function render() {
+            const grid = document.getElementById('items-grid');
+            grid.innerHTML = '';
+            let totalAssets = 0, totalDailyCost = 0;
+
+            const filteredItems = currentFilter === "全部" ? items : items.filter(item => (item.category || "其他") === currentFilter);
+            filteredItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            filteredItems.forEach(item => {
+                let stats;
+                if (item.status === "active") {
+                    stats = calculateStats(item.price, item.date);
+                    totalAssets += parseFloat(item.price);
+                    totalDailyCost += parseFloat(stats.cpw);
+                } else if (item.status === "sold") {
+                    stats = calculateStats(item.price, item.date, item.soldDate);
+                } else if (item.status === "retired") {
+                    stats = calculateStats(item.price, item.date, item.retiredDate);
+                }
+
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.onclick = () => openDetail(item.id);
+
+                let statusText = "服役中";
+                let statusClass = "active";
+                if (item.status === "sold") { statusText = "已卖出"; statusClass = "sold"; }
+                if (item.status === "retired") { statusText = "已退役"; statusClass = "retired"; }
+
+                let imgHtml = item.image ? `<img src="${item.image}">` :
+                    `<div class="item-img-placeholder" style="background:${getRandomColor(item.name)}">${item.name[0].toUpperCase()}</div>`;
+
+                card.innerHTML = `
+                    <div class="status-tag ${statusClass}"><div class="status-dot"></div>${statusText}</div>
+                    <div class="item-img-box">${imgHtml}</div>
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-meta">${item.category || "其他"} | ¥${item.price} | 已使用${stats.daysUsed}天</div>
+                    <div class="cpw-price">¥${stats.cpw}<span class="cpw-unit"> /天</span></div>
+                `;
+                grid.appendChild(card);
+            });
+
+            document.getElementById('total-assets').innerText = '¥' + totalAssets.toFixed(2);
+            document.getElementById('total-daily-cost').innerText = '¥' + totalDailyCost.toFixed(2);
+
+            renderCategoryTabs();
+            updateCategoryDatalist();
+            localStorage.setItem('myItems', JSON.stringify(items));
+        }
+
+        function openDetail(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            currentDetailId = id;
+
+            let stats;
+            if (item.status === "active") {
+                stats = calculateStats(item.price, item.date);
+                document.getElementById('d-cpw').innerHTML = `¥${stats.cpw}<span style="font-size:16px; font-weight:normal">/天</span>`;
+                document.getElementById('d-sub').innerText = `总价 ¥${item.price} | 已使用 ${stats.daysUsed} 天（当前日均成本）`;
+            } else if (item.status === "sold") {
+                stats = calculateStats(item.price, item.date, item.soldDate);
+                document.getElementById('d-cpw').innerHTML = `¥${stats.cpw}<span style="font-size:16px; font-weight:normal">/天</span>`;
+                document.getElementById('d-sub').innerText = `总价 ¥${item.price} | 使用 ${stats.daysUsed} 天后卖出（最终日均成本）`;
+            } else if (item.status === "retired") {
+                stats = calculateStats(item.price, item.date, item.retiredDate);
+                document.getElementById('d-cpw').innerHTML = `¥${stats.cpw}<span style="font-size:16px; font-weight:normal">/天</span>`;
+                document.getElementById('d-sub').innerText = `总价 ¥${item.price} | 使用 ${stats.daysUsed} 天后退役（最终日均成本）`;
+            }
+
+            document.getElementById('d-name').innerText = item.name;
+            document.getElementById('d-price').innerText = `¥${Number(item.price).toFixed(2)}`;
+            document.getElementById('d-date').innerText = item.date;
+            document.getElementById('d-category').innerText = item.category || "其他";
+
+            let statusText = item.status === "active" ? "服役中" : item.status === "sold" ? "已卖出" : "已退役";
+            document.getElementById('d-status').innerText = statusText;
+
+            document.getElementById('d-sold-row').style.display = item.status === "sold" ? "flex" : "none";
+            document.getElementById('d-profit-row').style.display = item.status === "sold" ? "flex" : "none";
+            if (item.status === "sold") {
+                document.getElementById('d-sold-info').innerText = `${item.soldDate} / ¥${item.soldPrice}`;
+                const profit = (parseFloat(item.soldPrice) - parseFloat(item.price)).toFixed(2);
+                const profitText = profit > 0 ? `+¥${profit}` : `¥${profit}`;
+                document.getElementById('d-profit').innerText = profitText;
+                document.getElementById('d-profit').className = profit > 0 ? "profit-positive" : "profit-negative";
+            }
+
+            document.getElementById('d-retired-row').style.display = item.status === "retired" ? "flex" : "none";
+            if (item.status === "retired") {
+                document.getElementById('d-retired-date').innerText = item.retiredDate;
+            }
+
+            document.getElementById('chart-start-date').innerText = item.date.replace(/-/g, '.');
+
+            const imgBox = document.getElementById('d-img-box');
+            if (item.image) {
+                imgBox.innerHTML = `<img src="${item.image}">`;
+            } else {
+                imgBox.innerHTML = `<div class="item-img-placeholder" style="background:${getRandomColor(item.name)}">${item.name[0].toUpperCase()}</div>`;
+            }
+
+            drawChart(item.price, stats.daysUsed);
+            document.getElementById('detail-overlay').style.display = 'flex';
+        }
+
+        function closeDetail() {
+            document.getElementById('detail-overlay').style.display = 'none';
+        }
+
+        function drawChart(price, totalDays) {
+            const width = 1000;
+            const height = 150;
+            if (totalDays <= 1) {
+                const d = `M 0 ${height/2} L ${width} ${height/2}`;
+                document.getElementById('chart-line-path').setAttribute('d', d);
+                document.getElementById('chart-area-path').setAttribute('d', `M 0 ${height} L 0 ${height/2} L ${width} ${height/2} L ${width} ${height} Z`);
+                return;
+            }
+            const maxCpw = price / 1;
+            const minCpw = price / totalDays;
+            const steps = Math.min(totalDays, 50);
+            let pathCmd = "M";
+            for (let i = 0; i <= steps; i++) {
+                const t = 1 + (i / steps) * (totalDays - 1);
+                const currentCpw = price / t;
+                const x = (i / steps) * width;
+                const range = maxCpw - minCpw;
+                let yPercent = range === 0 ? 0.5 : (currentCpw - minCpw) / range;
+                const y = 140 - (yPercent * 130);
+                if (i === 0) pathCmd += ` ${x} ${y}`;
+                else pathCmd += ` L ${x} ${y}`;
+            }
+            document.getElementById('chart-line-path').setAttribute('d', pathCmd);
+            const areaCmd = pathCmd + ` L ${width} ${height} L 0 ${height} Z`;
+            document.getElementById('chart-area-path').setAttribute('d', areaCmd);
+        }
+
+        function deleteCurrentItem() {
+            if (confirm('确定要删除这个物品吗？')) {
+                items = items.filter(i => i.id !== currentDetailId);
+                render();
+                closeDetail();
+            }
+        }
+
+        function toggleStatusFields() {
+            const status = document.getElementById('input-status').value;
+            document.getElementById('sold-fields').classList.toggle('active', status === 'sold');
+            document.getElementById('retired-fields').classList.toggle('active', status === 'retired');
+        }
+
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modal-title').innerText = "添加新物品";
+            clearForm();
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function editCurrentItem() {
+            const item = items.find(i => i.id === currentDetailId);
+            if (!item) return;
+            editingId = currentDetailId;
+            document.getElementById('modal-title').innerText = "修改物品";
+
+            document.getElementById('input-name').value = item.name;
+            document.getElementById('input-price').value = item.price;
+            document.getElementById('input-date').value = item.date;
+            document.getElementById('input-category').value = item.category || "其他";
+            document.getElementById('input-status').value = item.status || "active";
+
+            if (item.status === "sold") {
+                document.getElementById('input-sold-date').value = item.soldDate || "";
+                document.getElementById('input-sold-price').value = item.soldPrice || "";
+            }
+            if (item.status === "retired") {
+                document.getElementById('input-retired-date').value = item.retiredDate || "";
+            }
+
+            toggleStatusFields();
+
+            if (item.image) {
+                tempImageBase64 = item.image;
+                document.getElementById('preview-img').src = item.image;
+                document.getElementById('preview-container').style.display = 'block';
+            } else {
+                clearPreview();
+            }
+
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function saveItem() {
+            const name = document.getElementById('input-name').value.trim();
+            const price = document.getElementById('input-price').value;
+            const date = document.getElementById('input-date').value;
+            let category = document.getElementById('input-category').value.trim() || "其他";
+            const status = document.getElementById('input-status').value;
+
+            if (!name || !price || !date) {
+                alert('请填写完整基本信息');
+                return;
+            }
+
+            const itemData = { name, price, date, category, status, image: tempImageBase64 };
+
+            if (status === "sold") {
+                const soldDate = document.getElementById('input-sold-date').value;
+                const soldPrice = document.getElementById('input-sold-price').value;
+                if (!soldDate || !soldPrice) {
+                    alert('已卖出需填写日期和价格');
+                    return;
+                }
+                itemData.soldDate = soldDate;
+                itemData.soldPrice = soldPrice;
+            } else if (status === "retired") {
+                const retiredDate = document.getElementById('input-retired-date').value;
+                if (!retiredDate) {
+                    alert('已退役需填写日期');
+                    return;
+                }
+                itemData.retiredDate = retiredDate;
+            }
+
+            if (editingId) {
+                const index = items.findIndex(i => i.id === editingId);
+                if (index !== -1) {
+                    items[index] = { ...items[index], ...itemData };
+                    if (currentDetailId === editingId) openDetail(editingId);
+                }
+            } else {
+                itemData.id = Date.now();
+                items.push(itemData);
+            }
+
+            closeEditModal();
+            render();
+        }
+
+        function toggleBackupPanel() {
+            const panel = document.getElementById('backup-panel');
+            panel.classList.toggle('show');
+        }
+
+        document.addEventListener('click', function(e) {
+            const panel = document.getElementById('backup-panel');
+            const menuBtn = document.querySelector('.menu-btn');
+            if (panel && menuBtn && !panel.contains(e.target) && !menuBtn.contains(e.target)) {
+                panel.classList.remove('show');
+            }
+        });
+
+        function exportData() {
+            const dataStr = JSON.stringify(items, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my-assets-backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!confirm('导入将覆盖当前所有数据，确定要继续吗？')) {
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) throw new Error('格式错误');
+                    items = imported;
+                    items.forEach(item => {
+                        if (!item.category) item.category = "其他";
+                        if (!item.status) item.status = "active";
+                    });
+                    localStorage.setItem('myItems', JSON.stringify(items));
+                    render();
+                    alert('导入成功！');
+                } catch (err) {
+                    alert('导入失败：文件格式错误或损坏');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        document.getElementById('input-file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) { alert('图片太大，限2MB'); return; }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                tempImageBase64 = evt.target.result;
+                document.getElementById('preview-img').src = tempImageBase64;
+                document.getElementById('preview-container').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function clearForm() {
+            document.getElementById('input-name').value = '';
+            document.getElementById('input-price').value = '';
+            document.getElementById('input-date').valueAsDate = new Date();
+            document.getElementById('input-category').value = '';
+            document.getElementById('input-status').value = 'active';
+            document.getElementById('input-sold-date').value = '';
+            document.getElementById('input-sold-price').value = '';
+            document.getElementById('input-retired-date').value = '';
+            toggleStatusFields();
+            clearPreview();
+        }
+
+        function clearPreview() {
+            tempImageBase64 = '';
+            document.getElementById('input-file').value = '';
+            document.getElementById('preview-img').src = '';
+            document.getElementById('preview-container').style.display = 'none';
+        }
+
+        function getRandomColor(str) {
+            let hash = 0; str = str || '';
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            return `hsl(${hash % 360}, 70%, 85%)`;
+        }
+
+        document.getElementById('edit-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
+        });
+
+        render();
+    </script>
+</body>
 </html>
